@@ -3,268 +3,353 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0078d4">
 <title>Code Reader</title>
 <style>
   :root {
-    --bg: #f3f3f3;
-    --surface: rgba(255,255,255,0.7);
-    --surface2: rgba(255,255,255,0.5);
-    --border: rgba(0,0,0,0.08);
-    --text: #1a1a1a;
-    --text2: #555;
-    --accent: #0078d4;
-    --accent-h: #106ebe;
-    --danger: #d13438;
-    --radius: 12px;
+    --bg: #f3f3f3; --surface: rgba(255,255,255,0.85); --surface2: rgba(255,255,255,0.5);
+    --border: rgba(0,0,0,0.08); --text: #1a1a1a; --text2: #666;
+    --accent: #0078d4; --danger: #d13438; --radius: 12px;
     --shadow: 0 4px 24px rgba(0,0,0,0.10);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #202020;
-      --surface: rgba(40,40,40,0.8);
-      --surface2: rgba(50,50,50,0.6);
-      --border: rgba(255,255,255,0.08);
-      --text: #f3f3f3;
-      --text2: #aaa;
-      --accent: #60cdff;
-      --accent-h: #4ac7f5;
-      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+      --bg: #1c1c1c; --surface: rgba(36,36,36,0.9); --surface2: rgba(50,50,50,0.7);
+      --border: rgba(255,255,255,0.08); --text: #f3f3f3; --text2: #999;
+      --accent: #60cdff; --shadow: 0 4px 24px rgba(0,0,0,0.5);
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
-  header { background: var(--surface); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
+  header { background: var(--surface); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 10; }
   header h1 { font-size: 1.1rem; font-weight: 600; }
-  main { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 20px; max-width: 760px; width: 100%; margin: 0 auto; }
+  main { flex: 1; padding: 20px; max-width: 760px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+
   .card { background: var(--surface); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-  .card-header { padding: 14px 18px; font-size: 0.85rem; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-  #camera-wrap { position: relative; background: #000; aspect-ratio: 16/9; overflow: hidden; }
+  .card-header { padding: 12px 18px; font-size: 0.82rem; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); }
+
+  /* camera */
+  #cam-wrap { position: relative; background: #000; aspect-ratio: 16/9; }
   #video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-  .scan-frame { width: min(65%, 260px); aspect-ratio: 1; border: 2.5px solid var(--accent); border-radius: 16px; box-shadow: 0 0 0 2000px rgba(0,0,0,0.35); animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-  .scan-line { position: absolute; width: min(65%, 260px); height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: scan 2s linear infinite; }
-  @keyframes scan { 0%{top:calc(50% - min(32.5%,130px))} 100%{top:calc(50% + min(32.5%,130px))} }
-  #placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #aaa; font-size: 0.9rem; }
-  .controls { padding: 14px 18px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border-radius: 8px; border: none; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: background 0.15s, transform 0.1s; }
+  #canvas { display: none; }
+
+  /* overlay */
+  .overlay { position: absolute; inset: 0; pointer-events: none; }
+  #guide-box {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(60%, 280px);
+    aspect-ratio: 1;
+    border: 2px solid var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 0 0 2000px rgba(0,0,0,0.4);
+    transition: border-color 0.2s;
+  }
+  #guide-box.hit { border-color: #0f0; box-shadow: 0 0 0 2000px rgba(0,0,0,0.4), 0 0 20px rgba(0,255,0,0.5); }
+  #scan-bar {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    width: min(60%, 280px);
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scanMove 1.8s ease-in-out infinite;
+  }
+  @keyframes scanMove {
+    0%   { top: calc(50% - min(30%, 140px)); }
+    50%  { top: calc(50% + min(30%, 140px)); }
+    100% { top: calc(50% - min(30%, 140px)); }
+  }
+
+  #placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; color: #aaa; font-size: 0.9rem;
+  }
+
+  /* result flash */
+  #flash {
+    position: absolute; inset: 0;
+    background: rgba(0,255,0,0.15);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.1s;
+  }
+  #flash.show { opacity: 1; }
+
+  /* controls */
+  .controls { padding: 14px 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 20px; border-radius: 8px; border: none; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: opacity 0.15s, transform 0.1s; }
   .btn:active { transform: scale(0.97); }
   .btn-primary { background: var(--accent); color: #fff; }
-  .btn-primary:hover { background: var(--accent-h); }
   .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
   .btn-danger { background: var(--danger); color: #fff; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  #status-msg { font-size: 0.8rem; color: var(--text2); margin-left: 4px; }
-  #result-box { margin: 0 18px 14px; padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; display: none; }
-  #result-box.show { display: block; }
-  .result-label { font-size: 0.75rem; color: var(--text2); margin-bottom: 4px; }
-  #result-text { font-size: 1rem; font-weight: 600; word-break: break-all; color: var(--accent); }
-  #result-type { font-size: 0.75rem; color: var(--text2); margin-top: 4px; }
-  #history-list { max-height: 260px; overflow-y: auto; }
-  .history-empty { padding: 24px; text-align: center; color: var(--text2); font-size: 0.85rem; }
-  .history-item { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 0.88rem; animation: fadeIn 0.2s ease; }
-  @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
-  .history-item:last-child { border-bottom: none; }
-  .history-badge { font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--accent); color: #fff; white-space: nowrap; flex-shrink: 0; }
-  .history-value { flex: 1; word-break: break-all; }
-  .history-time { font-size: 0.75rem; color: var(--text2); white-space: nowrap; }
-  .history-footer { padding: 10px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
-  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #333; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 0.88rem; transition: transform 0.3s; z-index: 100; pointer-events: none; }
-  #toast.show { transform: translateX(-50%) translateY(0); }
-  .hint { font-size: 0.72rem; color: var(--text2); padding: 4px 18px 12px; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  #status { font-size: 0.8rem; color: var(--text2); }
+
+  .hint { font-size: 0.72rem; color: var(--text2); padding: 0 18px 12px; }
   kbd { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 0.7rem; }
+
+  /* result */
+  #result-box { margin: 0 18px 14px; padding: 14px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; display: none; }
+  #result-box.show { display: block; animation: fadeIn 0.25s; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+  .rl { font-size: 0.72rem; color: var(--text2); margin-bottom: 4px; }
+  #result-val { font-size: 1.05rem; font-weight: 700; color: var(--accent); word-break: break-all; }
+  #result-fmt { font-size: 0.75rem; color: var(--text2); margin-top: 4px; }
+
+  /* history */
+  #hist-list { max-height: 240px; overflow-y: auto; }
+  .empty { padding: 24px; text-align: center; color: var(--text2); font-size: 0.85rem; }
+  .hist-item { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 0.87rem; animation: fadeIn 0.2s; }
+  .hist-item:last-child { border-bottom: none; }
+  .badge { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--accent); color: #fff; white-space: nowrap; flex-shrink: 0; }
+  .hval { flex: 1; word-break: break-all; }
+  .htime { font-size: 0.73rem; color: var(--text2); white-space: nowrap; }
+  .hist-footer { padding: 10px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; }
+
+  #toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(60px); background: #222; color: #fff; padding: 10px 22px; border-radius: 8px; font-size: 0.88rem; transition: transform 0.28s; z-index: 999; pointer-events: none; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
 <header>
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><line x1="21" y1="16" x2="21" y2="21"/><line x1="16" y1="21" x2="21" y2="21"/><line x1="9" y1="3" x2="9" y2="9"/><line x1="3" y1="9" x2="9" y2="9"/></svg>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><line x1="16" y1="16" x2="21" y2="16"/><line x1="16" y1="20" x2="21" y2="20"/><line x1="16" y1="16" x2="16" y2="21"/></svg>
   <h1>Code Reader</h1>
 </header>
+
 <main>
   <div class="card">
-    <div class="card-header">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      カメラビュー
-    </div>
-    <div id="camera-wrap">
+    <div class="card-header">📷 カメラビュー</div>
+    <div id="cam-wrap">
       <video id="video" autoplay muted playsinline></video>
-      <div class="scan-overlay">
-        <div class="scan-frame"></div>
-        <div class="scan-line" id="scan-line" style="display:none"></div>
+      <canvas id="canvas"></canvas>
+      <div class="overlay">
+        <div id="guide-box"></div>
+        <div id="scan-bar" style="display:none"></div>
       </div>
+      <div id="flash"></div>
       <div id="placeholder">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
         <span>「読み取り開始」でカメラを起動</span>
       </div>
     </div>
     <div class="controls">
       <button class="btn btn-primary" id="btn-start">▶ 読み取り開始</button>
       <button class="btn btn-secondary" id="btn-stop" disabled>■ 停止</button>
-      <span id="status-msg"></span>
+      <span id="status"></span>
     </div>
-    <div class="hint"><kbd>Enter</kbd> 開始 &nbsp; <kbd>Esc</kbd> 停止</div>
+    <div class="hint"><kbd>Enter</kbd> 開始　<kbd>Esc</kbd> 停止</div>
     <div id="result-box">
-      <div class="result-label">読み取り結果</div>
-      <div id="result-text"></div>
-      <div id="result-type"></div>
+      <div class="rl">読み取り結果</div>
+      <div id="result-val"></div>
+      <div id="result-fmt"></div>
     </div>
   </div>
+
   <div class="card">
     <div class="card-header">📋 読み取り履歴</div>
-    <div id="history-list">
-      <div class="history-empty" id="history-empty">履歴はありません</div>
-    </div>
-    <div class="history-footer">
-      <button class="btn btn-secondary" id="btn-csv" disabled>⬇ CSVエクスポート</button>
+    <div id="hist-list"><div class="empty" id="hist-empty">履歴はありません</div></div>
+    <div class="hist-footer">
+      <button class="btn btn-secondary" id="btn-csv" disabled>⬇ CSV出力</button>
       <button class="btn btn-danger" id="btn-clear" disabled>🗑 クリア</button>
     </div>
   </div>
 </main>
 <div id="toast"></div>
 
-<script type="module">
-import { BrowserMultiFormatReader, NotFoundException } from 'https://esm.sh/@zxing/library@0.20.0';
+<script>
+// ---- ZXing を動的ロード ----
+const ZXING_URL = 'https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js';
 
-const video = document.getElementById('video');
-const btnStart = document.getElementById('btn-start');
-const btnStop = document.getElementById('btn-stop');
-const btnCsv = document.getElementById('btn-csv');
-const btnClear = document.getElementById('btn-clear');
-const resultBox = document.getElementById('result-box');
-const resultText = document.getElementById('result-text');
-const resultType = document.getElementById('result-type');
-const historyList = document.getElementById('history-list');
-const historyEmpty = document.getElementById('history-empty');
+const video    = document.getElementById('video');
+const canvas   = document.getElementById('canvas');
+const ctx      = canvas.getContext('2d', { willReadFrequently: true });
+const guideBox = document.getElementById('guide-box');
+const scanBar  = document.getElementById('scan-bar');
+const flash    = document.getElementById('flash');
 const placeholder = document.getElementById('placeholder');
-const scanLine = document.getElementById('scan-line');
-const statusMsg = document.getElementById('status-msg');
+const resultBox   = document.getElementById('result-box');
+const resultVal   = document.getElementById('result-val');
+const resultFmt   = document.getElementById('result-fmt');
+const histList    = document.getElementById('hist-list');
+const histEmpty   = document.getElementById('hist-empty');
+const statusEl    = document.getElementById('status');
+const btnStart    = document.getElementById('btn-start');
+const btnStop     = document.getElementById('btn-stop');
+const btnCsv      = document.getElementById('btn-csv');
+const btnClear    = document.getElementById('btn-clear');
 
+let scanning = false, rafId = null, stream = null;
+let ZXing = null, reader = null;
 let history = [];
-let reader = null;
-let scanning = false;
-let lastCode = '';
-let cooldown = false;
+let lastVal = '', cooldownTimer = null;
 
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+function setStatus(s) { statusEl.textContent = s; }
+
+// ZXing ロード
+async function loadZXing() {
+  if (ZXing) return true;
+  setStatus('ライブラリ読み込み中…');
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = ZXING_URL;
+    s.onload = () => { ZXing = window.ZXing; resolve(true); };
+    s.onerror = () => { toast('ライブラリの読み込みに失敗しました'); resolve(false); };
+    document.head.appendChild(s);
+  });
 }
 
-function setStatus(msg) { statusMsg.textContent = msg; }
-
 async function startCamera() {
-  setStatus('カメラを起動中…');
   btnStart.disabled = true;
+  const ok = await loadZXing();
+  if (!ok) { btnStart.disabled = false; return; }
+
+  setStatus('カメラ起動中…');
   try {
-    reader = new BrowserMultiFormatReader();
-    const devices = await BrowserMultiFormatReader.listVideoInputDevices();
-    if (!devices.length) { toast('カメラが見つかりません'); btnStart.disabled = false; return; }
-
-    // 高解像度優先で選択
-    const deviceId = devices[devices.length - 1].deviceId;
-
-    await reader.decodeFromVideoDevice(deviceId, video, (result, err) => {
-      if (result && !cooldown && result.getText() !== lastCode) {
-        lastCode = result.getText();
-        cooldown = true;
-        setTimeout(() => { cooldown = false; lastCode = ''; }, 2500);
-        onDetected(result.getText(), result.getBarcodeFormat());
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width:  { ideal: 1280, min: 640 },
+        height: { ideal: 720,  min: 480 },
+        facingMode: 'environment'
       }
     });
-
-    // 高解像度を再設定
-    const stream = video.srcObject;
-    if (stream) {
-      const track = stream.getVideoTracks()[0];
-      await track.applyConstraints({ width: { ideal: 1280 }, height: { ideal: 720 } });
-    }
+    video.srcObject = stream;
+    await video.play();
 
     placeholder.style.display = 'none';
-    scanLine.style.display = '';
-    scanning = true;
+    scanBar.style.display = '';
     btnStop.disabled = false;
+    scanning = true;
     setStatus('スキャン中…');
+
+    // ZXing reader 初期化
+    const hints = new Map();
+    const formats = [
+      ZXing.BarcodeFormat.QR_CODE,
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.ITF,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.UPC_E,
+      ZXing.BarcodeFormat.DATA_MATRIX,
+      ZXing.BarcodeFormat.PDF_417,
+      ZXing.BarcodeFormat.AZTEC,
+    ];
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    reader = new ZXing.MultiFormatReader();
+    reader.setHints(hints);
+
+    tick();
   } catch(e) {
-    toast('カメラへのアクセスが拒否されました');
+    toast('カメラへのアクセスができませんでした');
     setStatus('');
     btnStart.disabled = false;
   }
 }
 
-function stopCamera() {
-  if (reader) { reader.reset(); reader = null; }
-  video.srcObject = null;
-  scanning = false;
-  placeholder.style.display = '';
-  scanLine.style.display = 'none';
-  btnStart.disabled = false;
-  btnStop.disabled = true;
-  setStatus('');
+function tick() {
+  if (!scanning) return;
+  if (video.readyState >= 2 && video.videoWidth > 0) {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    try {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const luminance = new ZXing.RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
+      const bitmap    = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(luminance));
+      const result    = reader.decode(bitmap);
+      if (result) onDetected(result.getText(), result.getBarcodeFormat());
+    } catch(e) {
+      // NotFoundException は正常（コードが映っていない）
+    }
+  }
+  rafId = requestAnimationFrame(tick);
 }
 
-// ZXingのフォーマット名を日本語に
-const formatLabel = f => {
-  const m = {
-    QR_CODE:'QR Code', EAN_13:'EAN-13', EAN_8:'EAN-8',
-    CODE_128:'Code 128', CODE_39:'Code 39', ITF:'ITF',
-    DATA_MATRIX:'Data Matrix', PDF_417:'PDF417',
-    UPC_A:'UPC-A', UPC_E:'UPC-E', AZTEC:'Aztec',
-  };
-  const k = String(f);
-  return m[k] || k;
-};
+function onDetected(val, fmt) {
+  if (val === lastVal && cooldownTimer) return;
+  lastVal = val;
+  clearTimeout(cooldownTimer);
+  cooldownTimer = setTimeout(() => { lastVal = ''; }, 3000);
 
-function onDetected(value, format) {
-  const label = formatLabel(format);
+  // フラッシュ & 枠変色
+  guideBox.classList.add('hit');
+  flash.classList.add('show');
+  setTimeout(() => { guideBox.classList.remove('hit'); flash.classList.remove('show'); }, 400);
+
+  const label = fmtLabel(fmt);
   resultBox.classList.add('show');
-  resultText.textContent = value;
-  resultType.textContent = `種別: ${label}`;
+  resultVal.textContent = val;
+  resultFmt.textContent = `種別: ${label}`;
 
   const now = new Date();
-  history.unshift({ value, type: label, time: now.toLocaleTimeString('ja-JP'), date: now.toLocaleDateString('ja-JP') });
+  history.unshift({ val, label, time: now.toLocaleTimeString('ja-JP'), date: now.toLocaleDateString('ja-JP') });
   renderHistory();
   btnCsv.disabled = false;
   btnClear.disabled = false;
   toast(`✅ ${label} を読み取りました`);
 }
 
+function fmtLabel(f) {
+  const m = { 0:'AZTEC',1:'CODABAR',2:'Code 39',3:'Code 93',4:'Code 128',5:'Data Matrix',
+    6:'EAN-8',7:'EAN-13',8:'ITF',9:'MaxiCode',10:'PDF417',11:'QR Code',
+    12:'RSS-14',13:'RSS Expanded',14:'UPC-A',15:'UPC-E',16:'UPC/EAN Ext.' };
+  return m[Number(f)] || String(f);
+}
+
+function stopCamera() {
+  scanning = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  video.srcObject = null;
+  placeholder.style.display = '';
+  scanBar.style.display = 'none';
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+  setStatus('');
+}
+
 function renderHistory() {
-  historyEmpty.style.display = history.length ? 'none' : '';
-  historyList.querySelectorAll('.history-item').forEach(e => e.remove());
+  histEmpty.style.display = history.length ? 'none' : '';
+  histList.querySelectorAll('.hist-item').forEach(e => e.remove());
   history.forEach(h => {
-    const div = document.createElement('div');
-    div.className = 'history-item';
-    div.innerHTML = `<span class="history-badge">${h.type}</span><span class="history-value">${esc(h.value)}</span><span class="history-time">${h.time}</span>`;
-    historyList.appendChild(div);
+    const d = document.createElement('div');
+    d.className = 'hist-item';
+    d.innerHTML = `<span class="badge">${h.label}</span><span class="hval">${esc(h.val)}</span><span class="htime">${h.time}</span>`;
+    histList.appendChild(d);
   });
 }
 
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 async function exportCSV() {
-  const header = 'No,種別,内容,時刻,日付\n';
-  const rows = history.map((h,i) => `${i+1},"${h.type}","${h.value.replace(/"/g,'""')}","${h.time}","${h.date}"`).join('\n');
-  const blob = new Blob(['\uFEFF'+header+rows], { type: 'text/csv' });
+  const rows = history.map((h,i) => `${i+1},"${h.label}","${h.val.replace(/"/g,'""')}","${h.time}","${h.date}"`);
+  const blob = new Blob(['\uFEFFNo,種別,内容,時刻,日付\n' + rows.join('\n')], { type: 'text/csv' });
+  const name = `scan_${new Date().toISOString().slice(0,10)}.csv`;
   if ('showSaveFilePicker' in window) {
     try {
-      const fh = await window.showSaveFilePicker({ suggestedName: `scan_${new Date().toISOString().slice(0,10)}.csv`, types:[{description:'CSV',accept:{'text/csv':['.csv']}}] });
+      const fh = await window.showSaveFilePicker({ suggestedName: name, types:[{description:'CSV',accept:{'text/csv':['.csv']}}] });
       const w = await fh.createWritable(); await w.write(blob); await w.close();
       toast('CSVを保存しました'); return;
     } catch(e) { if(e.name==='AbortError') return; }
   }
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `scan_${new Date().toISOString().slice(0,10)}.csv` });
-  a.click(); URL.revokeObjectURL(a.href);
-  toast('CSVをダウンロードしました');
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: name });
+  a.click(); toast('CSVをダウンロードしました');
 }
 
 btnStart.addEventListener('click', startCamera);
 btnStop.addEventListener('click', stopCamera);
 btnCsv.addEventListener('click', exportCSV);
 btnClear.addEventListener('click', () => {
-  history = []; lastCode = '';
+  history = []; lastVal = '';
   resultBox.classList.remove('show');
   renderHistory();
   btnCsv.disabled = true; btnClear.disabled = true;
